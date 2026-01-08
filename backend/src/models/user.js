@@ -16,6 +16,7 @@ const userSchema = new mongoose.Schema({
   },
   rol: {
     type: String,
+    enum: ["profesor", "alumno"],
     default: "profesor"
   },
   createdAt: {
@@ -24,4 +25,4 @@ const userSchema = new mongoose.Schema({
   }
 });
 
-export default mongoose.model("User", userSchema);
+export default mongoose.model("Usuario", userSchema, "usuarios");
