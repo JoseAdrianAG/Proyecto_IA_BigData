@@ -11,7 +11,7 @@ const passwordHash = await bcrypt.hash("1234", 10);
 
 await User.create({
   nombre: "Prueba Adrian",
-  email: "adrian@fpdam.com",
+  email: "prueba@gmail.com",
   password: passwordHash
 });
 
