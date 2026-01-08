@@ -23,6 +23,10 @@ const activitySchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  solucion: {
+    type: String,
+    default: null
+  },
   createdAt: {
     type: Date,
     default: Date.now
