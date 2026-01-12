@@ -10,8 +10,9 @@ await mongoose.connect("mongodb://localhost:27018/proyectoIA");
 const passwordHash = await bcrypt.hash("1234", 10);
 
 await user.create({
-  nombre: "Prueba Profesor",
-  email: "profe@fpdam.com",
+  nombre: "Prueba Alumno",
+  email: "adrian@gmail.com",
+  rol: "alumno",
   password: passwordHash
 });
 

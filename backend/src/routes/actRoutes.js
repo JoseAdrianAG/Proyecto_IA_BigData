@@ -53,3 +53,34 @@ router.get(
     res.json({ solution: "Solución completa del ejercicio" });
   }
 );
+
+router.post(
+  "/generate",
+  authenticateToken,
+  authorizeRoles("profesor", "alumno"),
+  async (req, res) => {
+    const { ciclo, modulo, nivel } = req.body;
+
+    const enunciado = `Actividad de ${modulo} para ${ciclo} (${nivel})`;
+    const solucion = `Solución detallada de la actividad`;
+
+    const act = await Actividad.create({
+      userId: req.user.id,
+      ciclo,
+      modulo,
+      nivel,
+      enunciado,
+      solucion: req.user.rol === "profesor" ? solucion : null
+    });
+
+    // 🔐 Respuesta según rol
+    if (req.user.rol === "alumno") {
+      return res.json({
+        id: act._id,
+        enunciado: act.enunciado
+      });
+    }
+
+    res.json(act);
+  }
+);
