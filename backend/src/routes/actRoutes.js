@@ -2,6 +2,10 @@ import express from "express";
 import Actividad from "../models/actividad.js";
 import { authenticateToken } from "../middleware/authMiddleware.js";
 import { authorizeRoles } from "../middleware/roleMiddleware.js";
+import { getPdfFromS3 } from "../services/s3Service.js";
+import { extractTextFromPdf } from "../utils/pdfUtils.js";
+import { buildPrompt } from "../services/promptService.js";
+import { invokeAgent } from "../services/agenteService.js";
 
 const router = express.Router();
 
@@ -82,5 +86,65 @@ router.post(
     }
 
     res.json(act);
+  }
+);
+
+router.post(
+  "/generate-ia",
+  authenticateToken,
+  authorizeRoles("profesor", "alumno"),
+  async (req, res) => {
+    try {
+      const { ciclo, modulo, nivel } = req.body;
+
+      const includeSolution = req.user.rol === "profesor";
+
+      const prompt = `
+Genera una actividad para:
+- Ciclo: ${ciclo}
+- Módulo: ${modulo}
+- Nivel: ${nivel}
+
+${includeSolution
+  ? "Incluye la solución detallada."
+  : "NO incluyas la solución."
+}
+      `;
+
+      const agentResponse = await invokeAgent(
+        prompt,
+        req.user.id
+      );
+
+      // 🧠 El agent devuelve eventos en streaming
+      let outputText = "";
+
+      for await (const event of agentResponse.completion) {
+        if (event.chunk?.bytes) {
+          outputText += new TextDecoder().decode(event.chunk.bytes);
+        }
+      }
+
+      const activity = await Activity.create({
+        userId: req.user.id,
+        ciclo,
+        modulo,
+        nivel,
+        enunciado: outputText,
+        solucion: includeSolution ? outputText : null
+      });
+
+      if (!includeSolution) {
+        return res.json({
+          id: activity._id,
+          enunciado: activity.enunciado
+        });
+      }
+
+      res.json(activity);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Error generando actividad con Agent" });
+    }
   }
 );
