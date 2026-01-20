@@ -3,17 +3,76 @@ import flet as ft
 import time
 from fpdf import FPDF
 import os
+import json
+import requests
 
-def home_view(page: ft.Page):
-    bg_color = "#0F0F10"
-    card_surface = "#1C1C1E" 
+def home_view(page: ft.Page, t, c):
+    # bg_color = "#0F0F10"
+    # card_surface = "#1C1C1E" 
+    # text_secondary = "#8E8E93"
+    
+    
+    is_dark = page.theme_mode == ft.ThemeMode.DARK
+
+    # bg_color = ft.Colors.SURFACE 
+    # card_surface = ft.Colors.SURFACE_CONTAINER_LOW
+    # text_primary = ft.Colors.ON_SURFACE
+    # text_secondary = ft.Colors.ON_SURFACE_VARIANT
+    # border_color = ft.Colors.OUTLINE_VARIANT
+
+    bg_color = "#0F0F10" if is_dark else "#E3EDEA"
+    card_surface = "#1C1C1E" if is_dark else "#FFFFFF"
+    text_primary = "#FFFFFF" if is_dark else "#1C1C1E"
+    text_secondary = "#8E8E93"
+    border_color = "#2C2C2E" if is_dark else "#E0E0E0"
+    input_bg = "#242426" if is_dark else "#F9F9F9"
+    accent_color = "#007AFF" if is_dark else "#D1E5E0"
+    accent_text = "#FFFFFF" if is_dark else "#4F796F"
+    
+    def toggle_theme(e):
+        is_dark = e.control.value
+        page.theme_mode = ft.ThemeMode.DARK if is_dark else ft.ThemeMode.LIGHT
+        
+        new_bg = "#0F0F10" if is_dark else "#E3EDEA"
+        new_card = "#1C1C1E" if is_dark else "#FFFFFF"
+        new_text = "#FFFFFF" if is_dark else "#1C1C1E"
+        new_border = "#2C2C2E" if is_dark else "#E0E0E0"
+        new_input = "#242426" if is_dark else "#F9F9F9"
+        new_accent = "#007AFF" if is_dark else "#D1E5E0"
+        new_accent_text = "#FFFFFF" if is_dark else "#4F796F"
+
+        page.views[-1].bgcolor = new_bg
+        
+        main_card.bgcolor = new_card
+        main_card.border = ft.border.all(1, new_border)
+        
+        for dd in [ciclo_dd, curso_dd, dificultad_dd]:
+            dd.bgcolor = new_input
+            dd.border_color = new_border
+            dd.color = new_text
+        
+        details_input.bgcolor = new_input
+        details_input.border_color = new_border
+        details_input.color = new_text
+
+        # generate_btn.bgcolor = new_accent
+        # btn_text.color = new_accent_text
+
+        header.content.controls[0].icon_color = new_text
+        header.content.controls[1].color = new_text
+        header_section.controls[0].color = new_text
+        
+        
+        drawer.bgcolor = new_card
+        
+        page.update()
+
     accent_gradient = ft.LinearGradient(
         begin=ft.Alignment.TOP_LEFT,
         end=ft.Alignment.BOTTOM_RIGHT,
         colors=["#007AFF", "#0051AF"],
     )
-    text_secondary = "#8E8E93"
-    
+
     all_conversations = []
     
     MOCK_EXAM_DATA = {
@@ -47,14 +106,15 @@ def home_view(page: ft.Page):
             header_section.visible = False
             form_section.visible = False
             results_section.visible = True
-            btn_text.text = "Edit"
+            btn_text.text = t['btn_edit']
             generate_btn.on_click = show_edit_sheet
             
             await page.close_drawer()
             page.update()
 
     drawer = ft.NavigationDrawer(
-        bgcolor=card_surface, 
+        bgcolor=card_surface,
+        # bgcolor=colors["card"], 
         on_change=load_conversation
     )    
     async def open_drawer(e):
@@ -63,28 +123,39 @@ def home_view(page: ft.Page):
         drawer.update()
         page.update()
 
+    user_name = page.session.store.get("user_name") or "User"
+    user_initial = user_name[0].upper()
+
+    profile_button = ft.Container(
+        content=ft.Text(
+            user_initial, 
+            size=12, 
+            weight="bold", 
+            color="white"
+        ),
+        alignment=ft.Alignment.CENTER,
+        width=32,
+        height=32,
+        bgcolor="#007AFF",
+        border_radius=16,
+        on_click=lambda _: page.go("/profile"),
+        ink=True,
+        tooltip=t['profile_tooltip'],
+    )
+    
     header = ft.Container(
         content=ft.Row(
             [
                 ft.IconButton(
                     icon=ft.Icons.MENU_ROUNDED, 
-                    icon_color="white", 
+                    icon_color=text_primary,
                     on_click=open_drawer,
-                    visual_density=ft.VisualDensity.COMPACT
                 ),
-                ft.Text("Exam Generator", size=18, weight=ft.FontWeight.W_600, color="white"),
-                ft.Container(
-                    content=ft.Text("U", size=12, weight="bold"),
-                    alignment=ft.Alignment.CENTER,
-                    width=32,
-                    height=32,
-                    bgcolor="#007AFF",
-                    border_radius=16,
-                ),
+                ft.Text(t['title'], size=18, weight="bold", color=text_primary),
+                profile_button,
             ],
             alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
         ),
-        # padding=ft.padding.only(left=15, right=15, top=10),
     )
     
     def user_message(content):
@@ -94,11 +165,11 @@ def home_view(page: ft.Page):
                     ft.Column(
                         [
                             ft.Text("You", size=12, weight="bold", color="white", text_align=ft.TextAlign.RIGHT),
-                            ft.Text(content, size=14, color="white", selectable=True, text_align=ft.TextAlign.RIGHT),
+                            ft.Text(content, size=14, color="white", selectable=True, text_align=ft.TextAlign.LEFT,width=290,),
                         ],
                         spacing=2, horizontal_alignment=ft.CrossAxisAlignment.END, expand=True,
                     ),
-                    ft.Container(content=ft.Text("U", size=12, weight="bold", color="white"), width=30, height=30, bgcolor="#007AFF", border_radius=15, alignment=ft.Alignment.CENTER),
+                    ft.Container(content=ft.Text(user_initial, size=12, weight="bold", color="white"), width=30, height=30, bgcolor="#007AFF", border_radius=15, alignment=ft.Alignment.CENTER),
                 ],
                 vertical_alignment="start", alignment=ft.MainAxisAlignment.END,
             ),
@@ -111,11 +182,6 @@ def home_view(page: ft.Page):
         return container
 
     def chat_message(content):
-        def on_hover(e):
-            e.control.scale = 1.1 if e.data == "true" else 1.0
-            # Change background brightness on hover
-            e.control.bgcolor = "#5286E0" if e.data == "true" else "#4472C4"
-            e.control.update()
         def on_download_click(e):
             generate_pdf(content)
 
@@ -129,13 +195,13 @@ def home_view(page: ft.Page):
                     ),
                     ft.Column([
                         ft.Row([
-                            ft.Text("AI Assistant", size=12, weight="bold", color="white"),
+                            ft.Text(t['chat_name'], size=12, weight="bold", color="white"),
                             ft.Container(
                                 content=ft.IconButton(
                                     icon=ft.Icons.FILE_DOWNLOAD_ROUNDED,
                                     icon_size=16,
                                     icon_color="#AFAFBD",
-                                    tooltip="Download Exam as PDF",
+                                    tooltip=t['chat_tooltip'],
                                     on_click=on_download_click,
                                     visual_density=ft.VisualDensity.COMPACT,
                                 ),
@@ -162,7 +228,7 @@ def home_view(page: ft.Page):
         pdf.set_font("Arial", size=12)
         
         pdf.set_font("Arial", 'B', 16)
-        pdf.cell(200, 10, txt="Generated Exam", ln=True, align='C')
+        pdf.cell(200, 10, txt=t['title'], ln=True, align='C')
         pdf.ln(10)
         
         pdf.set_font("Arial", size=12)
@@ -206,15 +272,25 @@ def home_view(page: ft.Page):
         header_section.visible = True
         form_section.visible = True
         results_section.visible = False
-        btn_text.text = "Start Generating"
+        btn_text.text = t['btn_start']
         generate_btn.on_click = handle_generate
         page.update()
 
     async def handle_logout(e):
         print("Logging out...")
+        saved_lang = page.session.store.get("lang") or "English"
+        page.session.store.clear()
+        page.session.store.set("lang", saved_lang)
         page.go("/")
-
+        
+      
     def update_drawer():
+        def on_dropdown_change(e):
+            page.session.store.set("lang", language_dropdown.value)
+            current = page.route
+            page.go("/refresh")
+            page.go(current)
+            
         history_items = ft.Column(
             scroll=ft.ScrollMode.AUTO,
             expand=True,
@@ -224,7 +300,7 @@ def home_view(page: ft.Page):
                     padding=ft.padding.symmetric(horizontal=20),
                     alignment=ft.Alignment.CENTER,
                     content=ft.ElevatedButton(
-                        "New Conversation",
+                        t['new_item'],
                         icon=ft.Icons.ADD_ROUNDED,
                         color="white",
                         bgcolor="#007AFF",
@@ -233,10 +309,10 @@ def home_view(page: ft.Page):
                         style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=10))
                     )
                 ),
-                ft.Divider(height=40, color="#2C2C2E"),
+                ft.Divider(height=40, color=border_color),
                 ft.Container(
                     padding=ft.padding.only(left=20, bottom=10), 
-                    content=ft.Text("RECENT HISTORY", size=11, color=text_secondary, weight="bold")
+                    content=ft.Text(t['history_text'], size=11, color=text_secondary, weight="bold")
                 ),
             ]
         )
@@ -249,27 +325,54 @@ def home_view(page: ft.Page):
                     on_click=load_conversation,
                 )
             )
+        
+        language_dropdown = ft.Dropdown(
+            width=140,
+            height=45,
+            hint_text="Lang",
+            options=[ft.dropdown.Option("English"), ft.dropdown.Option("Spanish")],
+            on_text_change=on_dropdown_change,
+            border_color=c['border'],
+        )
+        
+        theme_switch = ft.Switch( 
+            value=True,
+            label_text_style=ft.TextStyle(size=12, color="white"),
+            on_change=toggle_theme,
+        )
 
         logout_section = ft.Container(
-            padding=ft.padding.symmetric(vertical=20),
-            border=ft.border.only(top=ft.BorderSide(1, "#2C2C2E")),
-            alignment=ft.Alignment.CENTER, 
-            content=ft.TextButton(
-                width=200, 
-                height=35,
-                style=ft.ButtonStyle(
-                    bgcolor={"": ft.Colors.with_opacity(0.05, "white")}, 
-                    shape=ft.RoundedRectangleBorder(radius=10),
-                ),
-                content=ft.Row(
-                    [
-                        ft.Icon(ft.Icons.LOGOUT_ROUNDED, color="#FF453A", size=20),
-                        ft.Text("Logout", color="#FF453A", weight="bold"),
-                    ],
-                    alignment=ft.MainAxisAlignment.CENTER,
-                    spacing=10,
-                ),
-                on_click=handle_logout,
+            padding=ft.padding.symmetric(vertical=20, horizontal=10),
+            border=ft.border.only(top=ft.BorderSide(1, border_color)),
+            content=ft.Column(
+                horizontal_alignment="center",
+                spacing=20,
+                controls=[
+                    ft.Row(
+                        alignment="spaceBetween",
+                        controls=[
+                            language_dropdown,
+                            theme_switch,
+                        ]
+                    ),
+                    ft.TextButton(
+                        width=250, 
+                        height=40,
+                        style=ft.ButtonStyle(
+                            bgcolor={"": "rgba(255, 255, 255, 0.05)"}, 
+                            shape=ft.RoundedRectangleBorder(radius=10),
+                        ),
+                        content=ft.Row(
+                            [
+                                ft.Icon(ft.Icons.LOGOUT_ROUNDED, color="#FF453A", size=20),
+                                ft.Text("Logout", color="#FF453A", weight="bold"),
+                            ],
+                            alignment="center",
+                            spacing=10,
+                        ),
+                        on_click=handle_logout,
+                    )
+                ]
             )
         )
 
@@ -309,12 +412,12 @@ def home_view(page: ft.Page):
                             bgcolor="#48484A", 
                             border_radius=2, 
                         ),
-                        ft.Text("Edit Config", size=16, weight="bold"),
+                        ft.Text(t['edit_config'], size=16, weight="bold"),
                         dificultad_dd,
                         details_input,
                         ft.Divider(color="transparent", height=5),
                         ft.ElevatedButton(
-                            "Update",
+                            t['btn_update'],
                             color="white",
                             bgcolor="#4472C4",
                             height=45,
@@ -335,8 +438,8 @@ def home_view(page: ft.Page):
         
     header_section = ft.Column(
         [
-            ft.Text("Exam Config", size=20, weight="bold", color="white"),
-            ft.Text("change the difficulty and content", color=text_secondary, size=13),
+            ft.Text(t['second_title'], size=20, weight="bold", color="white"),
+            ft.Text(t['subtitle'], color=text_secondary, size=13),
         ], 
         spacing=2,
         horizontal_alignment=ft.CrossAxisAlignment.CENTER,
@@ -351,18 +454,18 @@ def home_view(page: ft.Page):
             label_style=ft.TextStyle(color=text_secondary, size=11),
             border_radius=12,
             border_width=1,
-            border_color="#2C2C2E",
-            bgcolor="#242426",
-            color="white",
+            border_color=border_color, # "#2C2C2E"
+            bgcolor=input_bg, # "#242426"
+            color=text_primary, # "white"
             focused_border_color="#007AFF",
             options=[ft.dropdown.Option(opt) for opt in options],
             height=60,
             content_padding=ft.padding.only(left=15, bottom=12),
         )
 
-    ciclo_dd = create_mobile_dropdown("Ciclo", ["DAM", "DAW", "ASIX"])
-    curso_dd = create_mobile_dropdown("Curso", ["1", "2"])
-    dificultad_dd = create_mobile_dropdown("Dificultad", ["Baja", "Media", "Alta"])
+    ciclo_dd = create_mobile_dropdown(t["ciclo"], ["DAM", "DAW", "ASIX"])
+    curso_dd = create_mobile_dropdown(t["curso"], ["1", "2"])
+    dificultad_dd = create_mobile_dropdown(t["dificultad"], ["Baja", "Media", "Alta"])
     
     details_input = ft.TextField(
         label="Context & Details",
@@ -396,10 +499,18 @@ def home_view(page: ft.Page):
     )
     
     async def handle_generate(e):
-        prompt_text = (
-            f"Generate an exam for {curso_dd.value or 'None'} {ciclo_dd.value or 'None'} Difficulty {dificultad_dd.value or 'Baja'} Additional details {details_input.value}"
-        )
+        payload = {
+            "ciclo": ciclo_dd.value if ciclo_dd.value else "DAM",
+            "modulo": ciclo_dd.value if ciclo_dd.value else "DAM",
+            "nivel": dificultad_dd.value if dificultad_dd.value else "Baja"
+        }
         
+        token = page.session.store.get("token")
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json"
+        }
+
         if form_section.visible:
             header_section.visible = False
             form_section.visible = False
@@ -407,8 +518,8 @@ def home_view(page: ft.Page):
             generate_btn.on_click = show_edit_sheet
             btn_text.text = "Edit"
             page.update() 
-            await asyncio.sleep(0.1) 
 
+        prompt_text = f"Generate an exam for {curso_dd.value or 'None'} {ciclo_dd.value or 'None'} Difficulty {dificultad_dd.value or 'Baja'} Additional details {details_input.value}"
         u_msg = user_message(prompt_text)
         results_list.controls.append(u_msg)
         page.update()
@@ -416,16 +527,32 @@ def home_view(page: ft.Page):
         await asyncio.sleep(0.05)
         u_msg.opacity = 1
         u_msg.offset = ft.Offset(0, 0)
-        u_msg.scale = 1
         u_msg.update()
 
         generate_btn.disabled = True
         progress_ring.visible = True
         page.update()
-        
-        await asyncio.sleep(1.5) 
 
-        ai_content = "\n\n".join(MOCK_EXAM_DATA["questions"])
+        try:
+            API_GENERATE_URL = "http://localhost:3000/api/actividades/generate"
+            
+            response = await asyncio.to_thread(
+                requests.post, 
+                API_GENERATE_URL, 
+                json=payload, 
+                headers=headers, 
+                timeout=10
+            )
+
+            if response.status_code in [200, 201]:
+                data = response.json()
+                ai_content = data.get("enunciado", "No content received from server.")
+            else:
+                ai_content = f"Error {response.status_code}: Could not generate exam."
+        
+        except Exception as err:
+            ai_content = f"Connection Error: {str(err)}"
+
         ai_msg = chat_message(ai_content)
         results_list.controls.append(ai_msg)
         page.update()
@@ -433,16 +560,14 @@ def home_view(page: ft.Page):
         await asyncio.sleep(0.05)
         ai_msg.opacity = 1
         ai_msg.offset = ft.Offset(0, 0)
-        ai_msg.scale = 1
         ai_msg.update()
-        # results_list.scroll_to(key=str(len(results_list.controls)-1), duration=500)
         
         progress_ring.visible = False
         generate_btn.disabled = False
         page.update()
         
     progress_ring = ft.ProgressRing(width=16, height=16, color="white", stroke_width=2, visible=False)
-    btn_text = ft.Text("Start Generating", weight="bold", size=15)
+    btn_text = ft.Text(t['btn_start'], weight="bold", size=15)
 
     generate_btn = ft.Container(
         content=ft.Row(
@@ -463,7 +588,7 @@ def home_view(page: ft.Page):
         margin=ft.Margin.only(top=40),
         bgcolor=card_surface,
         border_radius=24,
-        border=ft.border.all(1, "#2C2C2E"),
+        border=ft.border.all(1, border_color), #"#2C2C2E"
         clip_behavior=ft.ClipBehavior.HARD_EDGE,
         content=ft.Stack([
             ft.Container(
@@ -486,6 +611,7 @@ def home_view(page: ft.Page):
         route="/home",
         bgcolor=bg_color,
         drawer=drawer,
+        # scroll=ft.ScrollMode.HIDDEN,
         controls=[
             ft.Column([        
                 ft.Container(
