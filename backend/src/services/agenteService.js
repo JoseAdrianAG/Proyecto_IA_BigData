@@ -2,7 +2,6 @@ import {
   BedrockAgentRuntimeClient,
   InvokeAgentCommand
 } from "@aws-sdk/client-bedrock-agent-runtime";
-import { bedrockClient } from "../config/aws.js";
 
 const agentClient = new BedrockAgentRuntimeClient({
   region: process.env.AWS_REGION
