@@ -14,11 +14,6 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  rol: {
-    type: String,
-    enum: ["profesor", "alumno"],
-    default: "profesor"
-  },
   createdAt: {
     type: Date,
     default: Date.now

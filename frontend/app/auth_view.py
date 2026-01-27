@@ -17,6 +17,16 @@ def auth_view(page: ft.Page, t, c):
     title = ft.Text("Sign In", size=26, weight=ft.FontWeight.BOLD, color="white")
     subtitle = ft.Text("Enter valid credentials to continue", color="#B0B3B8", size=13)
 
+    username_field = ft.TextField(
+        label="Nombre",
+        prefix_icon=ft.Icons.PERSON,
+        border_radius=12,
+        border_color="#3A3B3C",
+        focused_border_color="#4D94FF",
+        bgcolor="#242526",
+        height=55,
+    )
+    
     email_field = ft.TextField(
         label="Email",
         prefix_icon=ft.Icons.EMAIL_OUTLINED,
@@ -26,7 +36,6 @@ def auth_view(page: ft.Page, t, c):
         bgcolor="#242526",
         height=55,
         keyboard_type=ft.KeyboardType.EMAIL,
-        value="hassan@gmail.com"
     )
 
     password_field = ft.TextField(
@@ -39,7 +48,6 @@ def auth_view(page: ft.Page, t, c):
         focused_border_color="#4D94FF",
         bgcolor="#242526",
         height=55,
-        value="1234"
     )
 
     message_text = ft.Text("", size=12, text_align=ft.TextAlign.CENTER)
@@ -56,6 +64,7 @@ def auth_view(page: ft.Page, t, c):
 
         try:
             payload = {
+                "nombre": username_field.value,
                 "email": email_field.value, 
                 "password": password_field.value
             }
@@ -145,6 +154,7 @@ def auth_view(page: ft.Page, t, c):
                         icon_container,
                         title,
                         subtitle,
+                        username_field,
                         email_field,
                         password_field,
                         message_text,

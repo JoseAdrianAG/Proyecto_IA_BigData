@@ -46,7 +46,7 @@ def home_view(page: ft.Page, t, c):
         main_card.bgcolor = new_card
         main_card.border = ft.border.all(1, new_border)
         
-        for dd in [ciclo_dd, curso_dd, dificultad_dd]:
+        for dd in [ciclo_dd, curso_dd, dificultad_dd, solucion_dd]:
             dd.bgcolor = new_input
             dd.border_color = new_border
             dd.color = new_text
@@ -73,49 +73,90 @@ def home_view(page: ft.Page, t, c):
         colors=["#007AFF", "#0051AF"],
     )
 
-    all_conversations = []
-    
-    MOCK_EXAM_DATA = {
-        "title": "Python Programming Fundamentals",
-        "questions": [
-            "1. Explain the difference between 'is' and '==' in Python.",
-            "2. Describe how memory management works with Python's Garbage Collector.",
-            "3. Write a decorator that logs the execution time of a function.",
-            "4. What are list comprehensions and why are they used?"
-        ]
+    all_conversations = [
+    {
+        "id": "chatId_mongo",
+        "title": "DAM 1 - Media",
     }
+]
     
-    async def load_conversation(e):
-        chat_index = drawer.selected_index - 1 
-        
-        if chat_index >= 0:
-            selected_chat = all_conversations[chat_index]
-            
-            results_list.controls.clear()
-            
-            for msg in selected_chat["messages"]:
-                if msg["is_user"]:
-                    new_bubble = user_message(msg["text"])
-                else:
-                    new_bubble = chat_message(msg["text"])
-                
-                new_bubble.opacity = 1
-                new_bubble.offset = ft.Offset(0, 0)
-                results_list.controls.append(new_bubble)
-            
-            header_section.visible = False
-            form_section.visible = False
-            results_section.visible = True
-            btn_text.text = t['btn_edit']
-            generate_btn.on_click = show_edit_sheet
-            
-            await page.close_drawer()
-            page.update()
+    current_chat_id = None
+    
+    async def load_chats_from_backend():
+        token = page.session.store.get("token")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        res = await asyncio.to_thread(
+            requests.get,
+            "http://localhost:3000/api/historial/chats",
+            headers=headers
+        )
+
+        if res.status_code == 200:
+            all_conversations.clear()
+            for chat in res.json():
+                all_conversations.append({
+                    "id": chat["id"],
+                    "title": chat["title"]
+                })
+
+            update_drawer()
+
+    async def load_messages_from_backend(chat_id):
+        token = page.session.store.get("token")
+        headers = {"Authorization": f"Bearer {token}"}
+
+        res = await asyncio.to_thread(
+            requests.get,
+            f"http://localhost:3000/api/historial/chats/{chat_id}/mensajes",
+            headers=headers
+        )
+
+        if res.status_code != 200:
+            return []
+
+        messages = []
+        for m in res.json():
+            messages.append({
+                "is_user": m["role"] == "user",
+                "text": m["message"]
+            })
+
+        return messages
+
+    async def open_chat(chat):
+        nonlocal current_chat_id
+
+        current_chat_id = chat["id"]
+        results_list.controls.clear()
+
+        messages = await load_messages_from_backend(current_chat_id)
+
+        for msg in messages:
+            bubble = (
+                user_message(msg["text"])
+                if msg["is_user"]
+                else chat_message(msg["text"])
+            )
+            bubble.opacity = 1
+            bubble.offset = ft.Offset(0, 0)
+            results_list.controls.append(bubble)
+
+        header_section.visible = False
+        form_section.visible = False
+        results_section.visible = True
+
+        btn_text.text = t['btn_edit']
+        generate_btn.on_click = show_edit_sheet
+
+        await page.close_drawer()
+        page.update()
+
+
+
 
     drawer = ft.NavigationDrawer(
-        bgcolor=card_surface,
-        # bgcolor=colors["card"], 
-        on_change=load_conversation
+        bgcolor=card_surface
     )    
     async def open_drawer(e):
         drawer.open = True
@@ -239,9 +280,20 @@ def home_view(page: ft.Page, t, c):
         
         os.startfile(filename) if hasattr(os, 'startfile') else None
     
+    def clear_chat_view():
+        nonlocal current_chat_id
+        current_chat_id = None
+        results_list.controls.clear()
+        header_section.visible = True
+        form_section.visible = True
+        results_section.visible = False
+        btn_text.text = t['btn_start']
+        generate_btn.on_click = handle_generate
+        page.update()
+
     async def start_new_conversation(e):
         if len(results_list.controls) > 0:
-            title = f"{curso_dd.value} {ciclo_dd.value} - {dificultad_dd.value}"
+            title = f"{curso_dd.value} {ciclo_dd.value} - {dificultad_dd.value} {solucion_dd.value}"
 
             messages_data = []
             for control in results_list.controls:
@@ -267,14 +319,7 @@ def home_view(page: ft.Page, t, c):
 
             update_drawer()
 
-
-        results_list.controls.clear()
-        header_section.visible = True
-        form_section.visible = True
-        results_section.visible = False
-        btn_text.text = t['btn_start']
-        generate_btn.on_click = handle_generate
-        page.update()
+        clear_chat_view()
 
     async def handle_logout(e):
         print("Logging out...")
@@ -282,8 +327,106 @@ def home_view(page: ft.Page, t, c):
         page.session.store.clear()
         page.session.store.set("lang", saved_lang)
         page.go("/")
+    
+    async def update_chat_title(chat_id, new_title):
+        token = page.session.store.get("token")
+        headers = {"Authorization": f"Bearer {token}"}
+        await asyncio.to_thread(
+            requests.put,
+            f"http://localhost:3000/api/historial/chats/{chat_id}",
+            json={"title": new_title},
+            headers=headers,
+        )
+
+
+    def open_edit_chat_title(chat):
+        title_input = ft.TextField(value=chat["title"])
+
+        async def save_title(e):
+            await update_chat_title(chat["id"], title_input.value)
+            await load_chats_from_backend()
+            bs.open = False
+            page.update()
+
+        bs = ft.BottomSheet(
+            ft.Container(
+                padding=20,
+                content=ft.Column(
+                    [
+                        ft.Text("Editar título", weight="bold"),
+                        title_input,
+                        ft.ElevatedButton("Guardar", on_click=save_title),
+                    ]
+                )
+            ),
+            open=True
+        )
+
+        page.overlay.append(bs)
+        page.update()
+
+    def confirm_delete_chat(chat):
         
-      
+            
+        async def delete_chat(dialog):
+            token = page.session.store.get("token")
+            headers = {"Authorization": f"Bearer {token}"}
+
+            await asyncio.to_thread(
+                requests.delete,
+                f"http://localhost:3000/api/historial/chats/{chat['id']}",
+                headers=headers,
+            )
+
+            if current_chat_id == chat["id"]:
+                clear_chat_view()
+
+            await load_chats_from_backend()
+            dialog.open=False
+            page.update()
+
+        def close_dialog(dialog):
+            dialog.open=False
+            page.update()
+        
+
+        dialog = ft.AlertDialog(
+            title=ft.Text("Eliminar conversación"),
+            content=ft.Text("¿Seguro que quieres borrar este chat?"),
+            actions=[
+                ft.TextButton("Cancelar", on_click=lambda _: close_dialog(dialog)),
+                ft.TextButton("Borrar", on_click=lambda _: page.run_task(delete_chat, dialog)),
+            ],
+        )
+        
+        page.overlay.append(dialog)
+        dialog.open = True
+        page.update()
+
+    def chat_list_item(chat):
+        return ft.ListTile(
+            title=ft.Text(chat["title"], color="white"),
+            leading=ft.Icon(ft.Icons.CHAT_OUTLINED),
+            trailing=ft.Row(
+                width=80,
+                controls=[
+                    ft.IconButton(
+                        icon=ft.Icons.EDIT,
+                        icon_size=18,
+                        tooltip="Editar título",
+                        on_click=lambda e, c=chat: open_edit_chat_title(c),
+                    ),
+                    ft.IconButton(
+                        icon=ft.Icons.DELETE,
+                        icon_size=18,
+                        tooltip="Borrar chat",
+                        on_click=lambda e, c=chat: confirm_delete_chat(c),
+                    ),
+                ],
+            ),
+            on_click=lambda e, c=chat: page.run_task(open_chat, c),
+        )
+
     def update_drawer():
         def on_dropdown_change(e):
             page.session.store.set("lang", language_dropdown.value)
@@ -318,13 +461,7 @@ def home_view(page: ft.Page, t, c):
         )
 
         for chat in all_conversations:
-            history_items.controls.append(
-                ft.ListTile(
-                    title=ft.Text(chat["title"], color="white", size=14),
-                    leading=ft.Icon(ft.Icons.CHAT_OUTLINED, color=text_secondary),
-                    on_click=load_conversation,
-                )
-            )
+            history_items.controls.append(chat_list_item(chat))
         
         language_dropdown = ft.Dropdown(
             width=140,
@@ -466,6 +603,7 @@ def home_view(page: ft.Page, t, c):
     ciclo_dd = create_mobile_dropdown(t["ciclo"], ["DAM", "DAW", "ASIX"])
     curso_dd = create_mobile_dropdown(t["curso"], ["1", "2"])
     dificultad_dd = create_mobile_dropdown(t["dificultad"], ["Baja", "Media", "Alta"])
+    solucion_dd = create_mobile_dropdown(t["solución"], ["Si", "No"])
     
     details_input = ft.TextField(
         label="Context & Details",
@@ -484,7 +622,7 @@ def home_view(page: ft.Page, t, c):
     )
 
     form_section = ft.Column(
-        [ciclo_dd, curso_dd, dificultad_dd, details_input],
+        [ciclo_dd, curso_dd, dificultad_dd, solucion_dd, details_input],
         spacing=15,
         visible=True
     )
@@ -499,11 +637,7 @@ def home_view(page: ft.Page, t, c):
     )
     
     async def handle_generate(e):
-        payload = {
-            "ciclo": ciclo_dd.value if ciclo_dd.value else "DAM",
-            "modulo": ciclo_dd.value if ciclo_dd.value else "DAM",
-            "nivel": dificultad_dd.value if dificultad_dd.value else "Baja"
-        }
+        nonlocal current_chat_id
         
         token = page.session.store.get("token")
         headers = {
@@ -519,7 +653,20 @@ def home_view(page: ft.Page, t, c):
             btn_text.text = "Edit"
             page.update() 
 
-        prompt_text = f"Generate an exam for {curso_dd.value or 'None'} {ciclo_dd.value or 'None'} Difficulty {dificultad_dd.value or 'Baja'} Additional details {details_input.value}"
+        if solucion_dd.value=="Si":
+            prompt_text = f"Genera un examen para el {curso_dd.value or 'None'} de {ciclo_dd.value or 'None'} con una dificultad {dificultad_dd.value or 'Baja'}, y enseñame la solución. Otros detalles: {details_input.value}"
+        else:
+            prompt_text = f"Genera un examen para el {curso_dd.value or 'None'} de {ciclo_dd.value or 'None'} con una dificultad {dificultad_dd.value or 'Baja'}. Otros detalles: {details_input.value}"
+        
+        payload = {
+            "ciclo": ciclo_dd.value if ciclo_dd.value else "DAM",
+            "curso": curso_dd.value if curso_dd.value else 1,
+            "nivel": dificultad_dd.value if dificultad_dd.value else "Baja",
+            "solucion": solucion_dd.value if solucion_dd.value else "No",
+            "userPrompt": prompt_text,
+            "chatId": current_chat_id
+        }
+        
         u_msg = user_message(prompt_text)
         results_list.controls.append(u_msg)
         page.update()
@@ -534,21 +681,27 @@ def home_view(page: ft.Page, t, c):
         page.update()
 
         try:
-            API_GENERATE_URL = "http://localhost:3000/api/actividades/generate"
+            API_GENERATE_URL = "http://localhost:3000/api/actividades/generate-ia"
             
             response = await asyncio.to_thread(
                 requests.post, 
                 API_GENERATE_URL, 
                 json=payload, 
                 headers=headers, 
-                timeout=10
+                #timeout=10
             )
 
             if response.status_code in [200, 201]:
                 data = response.json()
-                ai_content = data.get("enunciado", "No content received from server.")
+                
+                if current_chat_id is None:
+                    current_chat_id = data["chatId"]
+                    await load_chats_from_backend()
+                
+                ai_content = (data.get("activity", {}).get("enunciado", "No content received from server."))
+
             else:
-                ai_content = f"Error {response.status_code}: Could not generate exam."
+                ai_content = f"Error {response.status_code}: Could not generate exam. {response.text}"
         
         except Exception as err:
             ai_content = f"Connection Error: {str(err)}"
@@ -606,7 +759,8 @@ def home_view(page: ft.Page, t, c):
     )
     
     update_drawer()
-    
+    page.run_task(load_chats_from_backend)
+
     return ft.View(
         route="/home",
         bgcolor=bg_color,

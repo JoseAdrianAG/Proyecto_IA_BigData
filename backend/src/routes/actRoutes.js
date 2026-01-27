@@ -1,6 +1,7 @@
 import express from "express";
 import Actividad from "../models/actividad.js";
-import Chat from "../models/historial.js";
+import Chat from "../models/chat.js";
+import Mensajes from "../models/mensajes.js";
 import { authenticateToken } from "../middleware/authMiddleware.js";
 import { invokeAgent } from "../services/agenteService.js";
 
@@ -14,50 +15,59 @@ const router = express.Router();
  */
 router.post("/generate-ia", authenticateToken, async (req, res) => {
   try {
-    const { ciclo, modulo, nivel } = req.body;
+    const { ciclo, curso, nivel, solucion, userPrompt, chatId } = req.body;
 
-    if (!ciclo || !modulo || !nivel) {
+    if (!ciclo || !curso || !nivel || !solucion || !userPrompt) {
       return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
 
-    const includeSolution = req.user.rol === "profesor";
+    // 1️⃣ Crear o reutilizar chat
+    let chat;
 
-    const prompt = `
-Actúa como un profesor de Formación Profesional en España.
+    if (chatId) {
+      chat = await Chat.findOne({ _id: chatId, userId: req.user.id });
+      if (!chat) {
+        return res.status(404).json({ error: "Chat no encontrado" });
+      }
+    } else {
+      chat = await Chat.create({
+        userId: req.user.id,
+        title: `${ciclo} - ${curso} (${nivel})`
+      });
+    }
 
-Genera una actividad evaluable para el ciclo formativo de grado superior:
-- Ciclo: ${ciclo}
-- Módulo profesional: ${modulo}
-- Nivel: ${nivel}
-
-La actividad debe:
-- Estar alineada con el currículo oficial del BOE y la Conselleria
-- Ser adecuada para alumnado de FP
-- Incluir contexto, enunciado claro y criterios de evaluación
-
-${includeSolution
-  ? "Incluye una solución detallada y razonada."
-  : "NO incluyas la solución, solo el enunciado."
-}
-
-Responde SIEMPRE en español.
-`;
-
-
-    const sessionId = req.user.id;
-
-    // Guardar mensaje del usuario
-    await Chat.create({
+    // 2️⃣ Guardar mensaje del usuario
+    await Mensajes.create({
+      chatId: chat._id,
       userId: req.user.id,
-      sessionId,
       role: "user",
-      message: prompt
+      message: userPrompt
     });
 
-    // Invocar Agent
-    const agentResponse = await invokeAgent(prompt, sessionId, "LIVE");
+    const prompt = `
+        Rol del usuario: ${req.user.rol}
+          
+        Ciclo: ${ciclo}
+        Curso: ${curso}
+        Nivel: ${nivel}
+        Solución: ${solucion}
+          
+        ${userPrompt}
+        Si la solución es si, SI incluyes la solución.
+        Si la solución es no, NO incluyes la solución.
+        Responde siempre en español
+        Contesta siempre, no pidas mas informacion, si no te indican temas escogelos tu aleatoriamente
+        `;
 
-    // Reconstruir respuesta
+
+    // 4️⃣ Invocar Agent (1 chat = 1 sesión)
+    const agentResponse = await invokeAgent(
+      prompt,
+      chat._id.toString(),
+      "LIVE"
+    );
+
+    // 5️⃣ Reconstruir respuesta
     let outputText = "";
     for await (const event of agentResponse.completion) {
       if (event.chunk?.bytes) {
@@ -65,33 +75,29 @@ Responde SIEMPRE en español.
       }
     }
 
-    // Guardar respuesta del Agent
-    await Chat.create({
+    // 6️⃣ Guardar mensaje del agente
+    await Mensajes.create({
+      chatId: chat._id,
       userId: req.user.id,
-      sessionId,
       role: "agent",
       message: outputText
     });
 
-    // Guardar actividad
+    // 7️⃣ Guardar actividad
     const activity = await Actividad.create({
       userId: req.user.id,
       ciclo,
-      modulo,
+      curso,
       nivel,
       enunciado: outputText,
-      solucion: includeSolution ? outputText : null
+      solucion
     });
 
-    // Respuesta según rol
-    if (!includeSolution) {
-      return res.json({
-        id: activity._id,
-        enunciado: activity.enunciado
-      });
-    }
-
-    res.json(activity);
+    // 8️⃣ Respuesta
+    res.json({
+      chatId: chat._id,
+      activity
+    });
 
   } catch (error) {
     console.error(error);

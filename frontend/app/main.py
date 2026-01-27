@@ -16,7 +16,7 @@ def main(page: ft.Page):
     page.theme_mode = ft.ThemeMode.DARK
 
     def get_current_t():
-        with open("languages.json", "r", encoding="utf-8") as f:
+        with open("frontend/app/languages.json", "r", encoding="utf-8") as f:
             translations = json.load(f)
         lang = page.session.store.get("lang") or "English"
         return translations[lang]

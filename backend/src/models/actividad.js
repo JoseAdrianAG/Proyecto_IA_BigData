@@ -11,9 +11,10 @@ const activitySchema = new mongoose.Schema({
     required: true,
     enum: ["DAM", "DAW", "ASIX"]
   },
-  modulo: {
-    type: String,
-    required: true
+  curso: {
+    type: Number,
+    required: true,
+    enum: [1, 2]
   },
   nivel: {
     type: String,
