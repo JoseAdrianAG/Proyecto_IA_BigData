@@ -5,15 +5,24 @@ from home_view import home_view
 from profile_view import profile_view
 
 
-def main(page: ft.Page):
-    page.window.height = 800
-    page.window.width = 450
-    page.window.resizable = False 
-    
+async def main(page: ft.Page):
+    page.window.width = 420
+    page.window.height = 720
+
+    page.window.min_width = 420
+    page.window.max_width = 420
+    page.window.min_height = 720
+    page.window.max_height = 720
+
+    page.window.resizable = False
+    page.window.minimizable = False
+    page.window.maximizable = False
+
     page.padding = 0
     page.spacing = 0
-    
     page.theme_mode = ft.ThemeMode.DARK
+    
+    await page.window.center()
 
     def get_current_t():
         with open("frontend/app/languages.json", "r", encoding="utf-8") as f:
@@ -64,6 +73,5 @@ def main(page: ft.Page):
 
     page.go("/")
     route_change(page.route)
-
-
+    
 ft.run(main)

@@ -14,6 +14,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  avatar: {
+    type: String,
+    default: "https://api.dicebear.com/7.x/pixel-art/png?seed=Valentina"
+  },
   createdAt: {
     type: Date,
     default: Date.now
