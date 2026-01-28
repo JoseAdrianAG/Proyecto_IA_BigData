@@ -5,31 +5,48 @@ from home_view import home_view
 from profile_view import profile_view
 
 
-def main(page: ft.Page):
+async def main(page: ft.Page):
+    # page.window.center()
     page.window.height = 800
     page.window.width = 450
     page.window.resizable = False 
     
+    
+    page.window.min_width = 450
+    page.window.max_width = 450
+    page.window.min_height = 800
+    page.window.max_height = 800
+    
+    page.window.minimizable = False
+    page.window.maximizable = False
+    
     page.padding = 0
     page.spacing = 0
+    page.update()
+    await page.window.center()
     
-    page.theme_mode = ft.ThemeMode.DARK
+    # page.theme_mode = ft.ThemeMode.DARK
 
     def get_current_t():
-        with open("frontend/app/languages.json", "r", encoding="utf-8") as f:
+        with open("languages.json", "r", encoding="utf-8") as f:
             translations = json.load(f)
-        lang = page.session.store.get("lang") or "English"
+        lang = page.session.store.get("lang") or "Spanish"
         return translations[lang]
     
     def get_palette():
-        is_dark = page.theme_mode == ft.ThemeMode.DARK
+        # is_dark = page.theme_mode == ft.ThemeMode.DARK
+        # is_dark = page.session.store.get("theme") or False
+        is_dark = not bool(page.session.store.get("theme"))
         return {
             "bg": "#0F0F10" if is_dark else "#E3EDEA",
             "card": "#1C1C1E" if is_dark else "#FFFFFF",
             "text": "#FFFFFF" if is_dark else "#1C1C1E",
-            "border": "#2C2C2E" if is_dark else "#E0E0E0",
+            "second_text": "#8E8E93",
+            "border": "#2C2C2E" if is_dark else "#CCC9C9",
             "input": "#242426" if is_dark else "#F9F9F9",
-            "accent": "#007AFF" if is_dark else "#D1E5E0",
+            "dropdown": "#242426" if is_dark else "#005B44",
+            "accent": "#007AFF" if is_dark else "#005B44",
+            "accent_gradient": "#0051AF" if is_dark else "#003225",
             "accent_text": "#FFFFFF" if is_dark else "#4F796F",
         }
     
@@ -62,8 +79,10 @@ def main(page: ft.Page):
     page.on_route_change = route_change
     page.on_view_pop = view_pop
 
-    page.go("/")
+    # page.go("/")
+    await page.push_route("/")
     route_change(page.route)
 
 
 ft.run(main)
+# ft.run(main, view=ft.AppView.WEB_BROWSER)
