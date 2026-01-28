@@ -105,4 +105,89 @@ router.post("/generate-ia", authenticateToken, async (req, res) => {
   }
 });
 
+/**
+ * POST /generate
+ * Mock generator (NO Agent) — for testing frontend
+ */
+router.post("/generate", authenticateToken, async (req, res) => {
+  try {
+    const { ciclo, curso, nivel, solucion, userPrompt, chatId } = req.body;
+
+    if (!ciclo || !curso || !nivel || !solucion || !userPrompt) {
+      return res.status(400).json({ error: "Faltan campos obligatorios" });
+    }
+
+    // 1️⃣ Create or reuse chat
+    let chat;
+
+    if (chatId) {
+      chat = await Chat.findOne({ _id: chatId, userId: req.user.id });
+      if (!chat) {
+        return res.status(404).json({ error: "Chat no encontrado" });
+      }
+    } else {
+      chat = await Chat.create({
+        userId: req.user.id,
+        title: `${ciclo} - ${curso} (${nivel})`
+      });
+    }
+
+    // 2️⃣ Save user message
+    await Mensajes.create({
+      chatId: chat._id,
+      userId: req.user.id,
+      role: "user",
+      message: userPrompt
+    });
+
+    // 3️⃣ MOCK AI RESPONSE (fixed content)
+    const mockResponse = `
+EXAMEN DE ${ciclo} - ${curso} (${nivel})
+
+1. Explica la diferencia entre '==' e 'is' en Python.
+2. ¿Qué es una lista por comprensión? Da un ejemplo.
+3. Explica qué es una función y cómo se define.
+4. ¿Qué es un diccionario y para qué se utiliza?
+
+${solucion === "si" ? `
+SOLUCIÓN:
+
+1. '==' compara valores, 'is' compara referencias.
+2. Una lista por comprensión permite crear listas de forma concisa.
+3. Una función es un bloque de código reutilizable.
+4. Un diccionario almacena pares clave-valor.
+` : ""}
+`.trim();
+
+    // 4️⃣ Save agent message (mock)
+    await Mensajes.create({
+      chatId: chat._id,
+      userId: req.user.id,
+      role: "agent",
+      message: mockResponse
+    });
+
+    // 5️⃣ Save activity
+    const activity = await Actividad.create({
+      userId: req.user.id,
+      ciclo,
+      curso,
+      nivel,
+      enunciado: mockResponse,
+      solucion
+    });
+
+    // 6️⃣ Response (same structure as /generate-ia)
+    res.json({
+      chatId: chat._id,
+      activity
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error generando actividad (mock)" });
+  }
+});
+
+
 export default router;
