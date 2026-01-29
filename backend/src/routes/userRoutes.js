@@ -75,13 +75,6 @@ router.put("/cambiar-password", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
 
-    // Validar longitud de nueva contraseña
-    if (newPassword.length < 6) {
-      return res.status(400).json({ 
-        error: "La contraseña debe tener al menos 6 caracteres" 
-      });
-    }
-
     // Buscar usuario
     const user = await Usuario.findById(req.user.id);
     if (!user) {
@@ -112,10 +105,6 @@ router.put("/cambiar-password", authenticateToken, async (req, res) => {
   }
 });
 
-/**
- * GET /profile
- * Obtiene el perfil del usuario autenticado
- */
 router.get("/perfil", authenticateToken, async (req, res) => {
   try {
     const user = await Usuario.findById(req.user.id).select("-password");

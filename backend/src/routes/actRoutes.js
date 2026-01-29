@@ -7,12 +7,6 @@ import { invokeAgent } from "../services/agenteService.js";
 
 const router = express.Router();
 
-/**
- * POST /generate-ia
- * Genera una actividad usando Amazon Bedrock Agent
- * - Alumno: solo enunciado
- * - Profesor: enunciado + solución
- */
 router.post("/generate-ia", authenticateToken, async (req, res) => {
   try {
     const { ciclo, curso, nivel, solucion, userPrompt, chatId } = req.body;
@@ -21,7 +15,7 @@ router.post("/generate-ia", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "Faltan campos obligatorios" });
     }
 
-    // 1️⃣ Crear o reutilizar chat
+    //Crear o reutilizar chat
     let chat;
 
     if (chatId) {
@@ -36,7 +30,7 @@ router.post("/generate-ia", authenticateToken, async (req, res) => {
       });
     }
 
-    // 2️⃣ Guardar mensaje del usuario
+    //Guardar mensaje del usuario
     await Mensajes.create({
       chatId: chat._id,
       userId: req.user.id,
@@ -60,14 +54,14 @@ router.post("/generate-ia", authenticateToken, async (req, res) => {
         `;
 
 
-    // 4️⃣ Invocar Agent (1 chat = 1 sesión)
+    //Invocar Agent
     const agentResponse = await invokeAgent(
       prompt,
       chat._id.toString(),
       "LIVE"
     );
 
-    // 5️⃣ Reconstruir respuesta
+    //Reconstruir respuesta
     let outputText = "";
     for await (const event of agentResponse.completion) {
       if (event.chunk?.bytes) {
@@ -75,7 +69,7 @@ router.post("/generate-ia", authenticateToken, async (req, res) => {
       }
     }
 
-    // 6️⃣ Guardar mensaje del agente
+    //Guardar mensaje del agente
     await Mensajes.create({
       chatId: chat._id,
       userId: req.user.id,
@@ -83,7 +77,7 @@ router.post("/generate-ia", authenticateToken, async (req, res) => {
       message: outputText
     });
 
-    // 7️⃣ Guardar actividad
+    //Guardar actividad
     const activity = await Actividad.create({
       userId: req.user.id,
       ciclo,
@@ -93,7 +87,7 @@ router.post("/generate-ia", authenticateToken, async (req, res) => {
       solucion
     });
 
-    // 8️⃣ Respuesta
+    //Respuesta
     res.json({
       chatId: chat._id,
       activity
@@ -104,90 +98,5 @@ router.post("/generate-ia", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Error generando actividad con Agent" });
   }
 });
-
-/**
- * POST /generate
- * Mock generator (NO Agent) — for testing frontend
- */
-router.post("/generate", authenticateToken, async (req, res) => {
-  try {
-    const { ciclo, curso, nivel, solucion, userPrompt, chatId } = req.body;
-
-    if (!ciclo || !curso || !nivel || !solucion || !userPrompt) {
-      return res.status(400).json({ error: "Faltan campos obligatorios" });
-    }
-
-    // 1️⃣ Create or reuse chat
-    let chat;
-
-    if (chatId) {
-      chat = await Chat.findOne({ _id: chatId, userId: req.user.id });
-      if (!chat) {
-        return res.status(404).json({ error: "Chat no encontrado" });
-      }
-    } else {
-      chat = await Chat.create({
-        userId: req.user.id,
-        title: `${ciclo} - ${curso} (${nivel})`
-      });
-    }
-
-    // 2️⃣ Save user message
-    await Mensajes.create({
-      chatId: chat._id,
-      userId: req.user.id,
-      role: "user",
-      message: userPrompt
-    });
-
-    // 3️⃣ MOCK AI RESPONSE (fixed content)
-    const mockResponse = `
-EXAMEN DE ${ciclo} - ${curso} (${nivel})
-
-1. Explica la diferencia entre '==' e 'is' en Python.
-2. ¿Qué es una lista por comprensión? Da un ejemplo.
-3. Explica qué es una función y cómo se define.
-4. ¿Qué es un diccionario y para qué se utiliza?
-
-${solucion === "si" ? `
-SOLUCIÓN:
-
-1. '==' compara valores, 'is' compara referencias.
-2. Una lista por comprensión permite crear listas de forma concisa.
-3. Una función es un bloque de código reutilizable.
-4. Un diccionario almacena pares clave-valor.
-` : ""}
-`.trim();
-
-    // 4️⃣ Save agent message (mock)
-    await Mensajes.create({
-      chatId: chat._id,
-      userId: req.user.id,
-      role: "agent",
-      message: mockResponse
-    });
-
-    // 5️⃣ Save activity
-    const activity = await Actividad.create({
-      userId: req.user.id,
-      ciclo,
-      curso,
-      nivel,
-      enunciado: mockResponse,
-      solucion
-    });
-
-    // 6️⃣ Response (same structure as /generate-ia)
-    res.json({
-      chatId: chat._id,
-      activity
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error generando actividad (mock)" });
-  }
-});
-
 
 export default router;

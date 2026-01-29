@@ -49,19 +49,19 @@ router.post("/register", async (req, res) => {
 router.post("/login", async (req, res) => {
   const { email, password } = req.body;
 
-  // 1. Comprobar usuario
+  //Comprobar usuario
   const user = await Usuario.findOne({ email });
   if (!user) {
     return res.status(401).json({ error: "Credenciales incorrectas" });
   }
 
-  // 2. Comprobar contraseña
+  //Comprobar contraseña
   const valid = await bcrypt.compare(password, user.password);
   if (!valid) {
     return res.status(401).json({ error: "Credenciales incorrectas" });
   }
 
-  // 3. Generar JWT
+  //Generar JWT
   const token = jwt.sign(
     { id: user._id },
     process.env.JWT_SECRET,

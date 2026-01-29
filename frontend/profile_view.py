@@ -2,7 +2,7 @@ import flet as ft
 import requests
 import httpx
 
-BASE_URL = "http://localhost:3000/api/auth"
+BASE_URL = "http://localhost:3000/api/usuario"
 
 def profile_view(page: ft.Page, t, c):
     user_id = page.session.store.get("user_id")
@@ -98,15 +98,17 @@ def profile_view(page: ft.Page, t, c):
 
         payload = {
             "id": user_id,
-            "oldPassword": old_pass.value,
+            "currentPassword": old_pass.value,
             "newPassword": new_pass.value
         }
 
         try:
+            token = page.session.store.get("token")
             async with httpx.AsyncClient() as client:
                 res = await client.put(
-                    f"{BASE_URL}/change-password",
+                    f"{BASE_URL}/cambiar-password",
                     json=payload,
+                    headers={"Authorization": f"Bearer {token}","Content-Type": "application/json"},
                     timeout=10
                 )
 
@@ -263,8 +265,10 @@ def profile_view(page: ft.Page, t, c):
         }
 
         try:
-            response = requests.put(f"{BASE_URL}/update-profile", json=payload)
-
+            token = page.session.store.get("token")
+            response = requests.put(f"{BASE_URL}/update", json=payload,
+                                    headers={"Authorization": f"Bearer {token}","Content-Type": "application/json"})
+            
             if response.status_code == 200:
                 data = response.json()
                 page.session.store.set("user_name", data['user']['nombre'])
@@ -279,6 +283,7 @@ def profile_view(page: ft.Page, t, c):
                     ft.Text(t['profile']['save_error']),
                     bgcolor="red"
                 )
+                print(response.status_code)
             
             page.overlay.append(snack_bar)
             snack_bar.open=True

@@ -6,31 +6,11 @@ from profile_view import profile_view
 
 
 async def main(page: ft.Page):
-<<<<<<< HEAD:frontend/app/main.py
-    page.window.width = 420
-    page.window.height = 720
-
-    page.window.min_width = 420
-    page.window.max_width = 420
-    page.window.min_height = 720
-    page.window.max_height = 720
-
-    page.window.resizable = False
-    page.window.minimizable = False
-    page.window.maximizable = False
-
-    page.padding = 0
-    page.spacing = 0
-    page.theme_mode = ft.ThemeMode.DARK
-    
-    await page.window.center()
-=======
-    # page.window.center()
     page.window.height = 800
     page.window.width = 450
-    page.window.resizable = False 
+    page.window.resizable = True 
     
-    
+    page.title="ExamChat"
     page.window.min_width = 450
     page.window.max_width = 450
     page.window.min_height = 800
@@ -43,19 +23,14 @@ async def main(page: ft.Page):
     page.spacing = 0
     page.update()
     await page.window.center()
-    
-    # page.theme_mode = ft.ThemeMode.DARK
->>>>>>> 4eb0ca0eb37d433eb8284ec6864acd2bbfe62f6b:frontend/main.py
 
     def get_current_t():
-        with open("languages.json", "r", encoding="utf-8") as f:
+        with open("frontend/languages.json", "r", encoding="utf-8") as f:
             translations = json.load(f)
         lang = page.session.store.get("lang") or "Spanish"
         return translations[lang]
     
     def get_palette():
-        # is_dark = page.theme_mode == ft.ThemeMode.DARK
-        # is_dark = page.session.store.get("theme") or False
         is_dark = not bool(page.session.store.get("theme"))
         return {
             "bg": "#0F0F10" if is_dark else "#E3EDEA",
@@ -98,16 +73,9 @@ async def main(page: ft.Page):
 
     page.on_route_change = route_change
     page.on_view_pop = view_pop
-
-    # page.go("/")
+    
     await page.push_route("/")
     route_change(page.route)
-<<<<<<< HEAD:frontend/app/main.py
-    
-ft.run(main)
-=======
 
 
 ft.run(main)
-# ft.run(main, view=ft.AppView.WEB_BROWSER)
->>>>>>> 4eb0ca0eb37d433eb8284ec6864acd2bbfe62f6b:frontend/main.py
