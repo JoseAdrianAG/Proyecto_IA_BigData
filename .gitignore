@@ -1,9 +1,7 @@
 ############################
 # Entornos y credenciales
 ############################
-.env
-.env.*
-*.env
+backend/.env
 
 ############################
 # Node.js (Backend)
